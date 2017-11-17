@@ -12,6 +12,7 @@ import ARKit
 import ARCL
 import CoreLocation
 import Vision
+import Alamofire
 
 class ViewController: UIViewController, SceneLocationViewDelegate {
   
@@ -22,7 +23,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   var latestHitCenter: SCNVector3?
   
   var processingSign = false
-  var latestPixBuff: CVPixelBuffer?
+  var latestCiImage: CIImage?
   var latestPosition: CGPoint?
   var visionRequests = [VNRequest]()
   let dispatchQueueML = DispatchQueue(label: "com.hw.dispatchqueueml")
@@ -61,9 +62,9 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let location1 = CLLocation(coordinate: coordinate1, altitude: -2)
     let annotationNode1 = LocationAnnotationNode(location: location1, image: image)
     
-    let coordinate2 = CLLocationCoordinate2D(latitude: 37.787293, longitude: -122.408160)
-    let location2 = CLLocation(coordinate: coordinate2, altitude: -2)
-    let annotationNode2 = LocationAnnotationNode(location: location2, image: image2)
+//    let coordinate2 = CLLocationCoordinate2D(latitude: 37.787293, longitude: -122.408160)
+//    let location2 = CLLocation(coordinate: coordinate2, altitude: -2)
+//    let annotationNode2 = LocationAnnotationNode(location: location2, image: image2)
     
     let coordinate3 = CLLocationCoordinate2D(latitude: 37.786934, longitude: -122.408026)
     let location3 = CLLocation(coordinate: coordinate3, altitude: -2)
@@ -74,11 +75,11 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     annotationNode3.scaleRelativeToDistance = true
     
     sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode1)
-    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode2)
+//    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode2)
     sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode3)
     
-    drawPath(node1: annotationNode1, node2: annotationNode2)
-    drawPath(node1: annotationNode2, node2: annotationNode3)
+//    drawPath(node1: annotationNode1, node2: annotationNode2)
+//    drawPath(node1: annotationNode2, node2: annotationNode3)
     //    let userNode = LocationAnnotationNode(location: sceneLocationView.currentLocation(), image: image)
     //    drawPath(node1: annotationNode3, node2: userNode)
   }
@@ -138,9 +139,24 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     guard !processingSign else { return print("processing...") }
     processingSign = true
     print("sign START")
-    
-    print("sign DONE")
-    processingSign = false
+    let context = CIContext.init(options: nil)
+    let cgImage = context.createCGImage(latestCiImage!, from: latestCiImage!.extent)!
+    let image = UIImage.init(cgImage: cgImage)
+    guard let imageRepresentation = UIImageJPEGRepresentation(image, 0.8) else {
+      print("imageRepresentation nil")
+      return processingSign = false
+    }
+    let imageData = imageRepresentation as NSData
+    let base64String = imageData.base64EncodedString(options: NSData.Base64EncodingOptions.lineLength64Characters)
+    let parameters: Parameters = [ "base64": base64String ]
+    print("### POSTING")
+    Alamofire.request("https://3ab5ea6f.ngrok.io/sign", method: .post, parameters: parameters, encoding: JSONEncoding.default).responseJSON { response in
+      print("Response JSON")
+      print(response.error ?? "no error")
+      print(response.result.value ?? "no value")
+      print("sign DONE")
+      self.processingSign = false
+    }
   }
   
   // MARK: - CoreML
@@ -168,7 +184,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
       let identifier = observation.identifier
       print(identifier)
       if targetIdentifiers.contains(identifier) {
-        print("Found: \(identifier)")
+//        print("Found: \(identifier)")
         foundSign()
       }
     }
@@ -177,10 +193,8 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   func updateCoreML() {
     guard let pixbuff = (sceneLocationView.session.currentFrame?.capturedImage) else { return }
     let ciImage = CIImage(cvPixelBuffer: pixbuff)
-    print("SAVE latestPixBuff")
-    latestPixBuff = pixbuff
+    latestCiImage = ciImage
     DispatchQueue.main.async {
-      print("SAVE latestPosition")
       self.latestPosition = CGPoint(x: self.sceneLocationView.bounds.midX, y: self.sceneLocationView.bounds.midY)
     }
     let imageRequestHandler = VNImageRequestHandler(ciImage: ciImage, options: [:])
