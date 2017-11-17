@@ -13,6 +13,7 @@ import UIKit
 struct PopUpViewItem {
   let name: String
   let eta: String
+  let color: UIColor
 }
 
 //class PopUpViewItemCell: UITableViewCell {
@@ -78,6 +79,7 @@ class PopupTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     let item = items[indexPath.row]
     let cell = tableView.dequeueReusableCell(withIdentifier: PopupTableViewCellId) ?? UITableViewCell(style: UITableViewCellStyle.subtitle, reuseIdentifier: PopupTableViewCellId)
     cell.textLabel?.text = item.name
+    cell.textLabel?.textColor = item.color
     cell.detailTextLabel?.text = item.eta
     return cell
   }

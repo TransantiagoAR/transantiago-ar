@@ -16,6 +16,7 @@ import Alamofire
 import MapKit
 
 let BusColors: [UIColor] = [.red, .green, .blue, .black, .brown, .cyan, .magenta, .purple]
+let BusAltitude: [Double] = [-3, -2.75, -2.5, -2.25, -2, -1.75, -1.5, -1.25, -1, -0.75]
 
 class EtaNode {
   let node: LocationAnnotationNode
@@ -30,10 +31,12 @@ class Bus {
   var journeys: [(Double, Double)] = []
   var etas: [String] = []
   let color: UIColor
+  let altitude: Double
   
-  init(pid: String, color: UIColor) {
+  init(pid: String, color: UIColor, altitude: Double) {
     self.pid = pid
     self.color = color
+    self.altitude = altitude
   }
 }
 
@@ -110,19 +113,19 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   }
   
   func loadBuses() {
-    guard !fetchingBuses else { return }
+    guard !fetchingBuses else { return print("busy fetching buses") }
     fetchingBuses = true
     let userLocation = sceneLocationView.currentLocation()
     let url = "https://f8059c21.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
     print("requesting: \(url)")
     Alamofire.request(url).responseJSON { response in
       var buses: [Bus] = []
-      guard response.error == nil else { return print("error: \(response.error.debugDescription)") }
+      guard response.error == nil else { self.fetchingBuses = false; return print("error: \(response.error.debugDescription)") }
       let json = response.result.value as! NSArray
       for itemAny in json {
         let item = itemAny as! NSDictionary
         let pid = item["pid"] as! String
-        let bus = Bus(pid: pid, color: BusColors[buses.count])
+        let bus = Bus(pid: pid, color: BusColors[buses.count], altitude: BusAltitude[buses.count])
         buses.append(bus)
         let etas = item["etas"] as! NSArray
         for etaAny in etas {
@@ -139,9 +142,10 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
           }
         }
       }
-      print("found buses: \(buses.count)")
-      self.buses = buses
       self.fetchingBuses = false
+      guard buses.count > 0 else { return print("no buses...") }
+      print("found buses: \(buses.count), an eta: \(buses[0].etas)")
+      self.buses = buses
       DispatchQueue.main.async { self.renderBuses() }
     }
   }
@@ -154,15 +158,20 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
       sceneLocationView.removeLocationNode(locationNode: busNode.node)
     }
     
+    var locations: [CLLocation] = []
     var busesNodes: [BusNode] = []
     for bus in buses {
       for journey in bus.journeys {
         let coordinate = CLLocationCoordinate2D(latitude: journey.0, longitude: journey.1)
-        let location = CLLocation(coordinate: coordinate, altitude: -2)
+        let location = CLLocation(coordinate: coordinate, altitude: bus.altitude)
         let node = LocationAnnotationNode(location: location, image: image)
         node.scaleRelativeToDistance = true
         let busNode = BusNode(pid: bus.pid, node: node, color: bus.color)
         busesNodes.append(busNode)
+        
+        if bus.pid == buses[0].pid {
+          locations.append(location)
+        }
       }
     }
     
@@ -173,27 +182,25 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
       guard i > 0 && busesNodes[i-1].pid == busNode.pid else { continue }
       drawPath(node1: busesNodes[i-1].node, node2: busNode.node, color: busNode.color)
     }
+    
+    let userLocation = sceneLocationView.currentLocation()!
+    locations.sort() { l1, l2 in l1.distance(from: userLocation) < l2.distance(from: userLocation) }
+    if (locations.count > 1) {
+      let busItems = buses.map() { bus in PopUpViewItem(name: bus.pid, eta: bus.etas[0], color: bus.color) }
+      let busTable = PopupTableView(items: busItems)
+      let busImage = busTable.image()
+      let c1 = locations[0].coordinate
+      let c2 = locations[1].coordinate
+      let c = CLLocationCoordinate2D(latitude: (c1.latitude+c2.latitude)/2, longitude: (c1.longitude+c2.longitude)/2)
+      let location = CLLocation(coordinate: c, altitude: 0)
+      self.etaNode = EtaNode(node: LocationAnnotationNode(location: location, image: busImage))
+      sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: etaNode!.node)
+    }
   }
   
   @objc func handleTap(gestureRecognize: UITapGestureRecognizer) {
     loadBuses()
   }
-    
-    //    TODO: ETA TABLE
-//    let items = [PopUpViewItem(name: "n1", eta: "5 min"), PopUpViewItem(name: "n2", eta: "1 min")]
-//    let table = PopupTableView(items: items)
-//    let image2 = table.image()
-////    let userLocation = sceneLocationView.currentLocation()!
-////    userLocation.coordinate.coordinateWithBearing(bearing: <#T##Double#>, distanceMeters: <#T##Double#>)
-////    let translation = LocationTranslation(latitudeTranslation: 0.01, longitudeTranslation: 0.01, altitudeTranslation: 0.01)
-////    let location = userLocation.translatedLocation(with: translation)
-//    let distance = CLLocationDistance(1/(1000*111))
-//    let coordinate = sceneLocationView.currentLocation()!.coordinate.transform(latitudinalMeters: distance, longitudinalMeters: distance)
-//    let location = CLLocation(coordinate: coordinate, altitude: 2)
-//    let node = LocationAnnotationNode(location: location, image: image2)
-//    etaNode = EtaNode(node: node)
-//    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: node)
-  
   
   //  func getValidDistance() -> SCNVector3 {
   //    print("getValidDistance")
@@ -250,10 +257,12 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let imageData = imageRepresentation as NSData
     let base64String = imageData.base64EncodedString(options: NSData.Base64EncodingOptions.lineLength64Characters)
     let coordinate = sceneLocationView.currentLocation()!.coordinate
-    let parameters: Parameters = [ "base64": base64String, "location": (coordinate.latitude, coordinate.longitude) ]
+    let parameters: Parameters = [ "base64": base64String, "lat": coordinate.latitude, "lon": coordinate.longitude ]
     let url = "https://3ab5ea6f.ngrok.io/sign"
     print("requesting: \(url)")
     Alamofire.request(url, method: .post, parameters: parameters, encoding: JSONEncoding.default).responseJSON { response in
+      print("json:")
+      print(response.result.value)
       let json = response.result.value as! NSDictionary
       let stop = json["stop"] as! String
       let busStop = BusStop(stop: stop)
@@ -262,7 +271,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
         let pid = journey["pid"] as! String
         let busStopBus = BusStopBus(pid: pid)
         busStop.buses.append(busStopBus)
-        let etas = journey["pid"] as! NSArray
+        let etas = journey["ETA"] as! NSArray
         for etaAny in etas {
           let eta = etaAny as! String
           busStopBus.etas.append(eta)
