@@ -36,13 +36,17 @@ class ViewController: UIViewController, ARSCNViewDelegate, SceneLocationViewDele
   func myRender() {
     let image = UIImage(named: "pin")!
     
+    let items = [PopUpViewItem(name: "n1", eta: "5 min"), PopUpViewItem(name: "n2", eta: "1 min")]
+    let table = PopupTableView(items: items)
+    let image2 = table.image()
+    
     let coordinate1 = CLLocationCoordinate2D(latitude: 37.787354, longitude: -122.408096)
     let location1 = CLLocation(coordinate: coordinate1, altitude: -2)
     let annotationNode1 = LocationAnnotationNode(location: location1, image: image)
     
     let coordinate2 = CLLocationCoordinate2D(latitude: 37.787293, longitude: -122.408160)
     let location2 = CLLocation(coordinate: coordinate2, altitude: -2)
-    let annotationNode2 = LocationAnnotationNode(location: location2, image: image)
+    let annotationNode2 = LocationAnnotationNode(location: location2, image: image2)
     
     let coordinate3 = CLLocationCoordinate2D(latitude: 37.786934, longitude: -122.408026)
     let location3 = CLLocation(coordinate: coordinate3, altitude: -2)
