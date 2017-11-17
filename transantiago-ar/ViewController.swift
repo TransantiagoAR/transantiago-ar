@@ -123,11 +123,11 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
       guard response.error == nil else { self.fetchingBuses = false; return print("error: \(response.error.debugDescription)") }
       let json = response.result.value as! NSArray
       for itemAny in json {
-        let item = itemAny as! NSDictionary
-        let pid = item["pid"] as! String
+        let item = itemAny as? NSDictionary ?? [:]
+        let pid = item["pid"] as? String ?? ""
         let bus = Bus(pid: pid, color: BusColors[buses.count], altitude: BusAltitude[buses.count])
         buses.append(bus)
-        let etas = item["etas"] as! NSArray
+        let etas = item["etas"] as? NSArray ?? []
         for etaAny in etas {
           let eta = etaAny as! String
           bus.etas.append(eta)
@@ -218,10 +218,10 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     Alamofire.request(url, method: .post, parameters: parameters, encoding: JSONEncoding.default).responseJSON { response in
       print("json:")
       print(response.result.value)
-      let json = response.result.value as! NSDictionary
-      let stop = json["stop"] as! String
+      let json = response.result.value as? NSDictionary ?? [:]
+      let stop = json["stop"] as? String ?? ""
       let busStop = BusStop(stop: stop)
-      for journeyAny in json["journies"] as! NSArray {
+      for journeyAny in json["journies"] as? NSArray ?? [] {
         let journey = journeyAny as! NSDictionary
         let pid = journey["pid"] as! String
         let busStopBus = BusStopBus(pid: pid)

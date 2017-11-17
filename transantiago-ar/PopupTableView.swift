@@ -40,7 +40,7 @@ class PopupTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     self.drawHierarchy(in: self.bounds, afterScreenUpdates: true)
     let image = UIGraphicsGetImageFromCurrentImageContext()
     UIGraphicsEndImageContext()
-    return image!
+    return image ?? UIImage()
   }
 
   //  MARK: - UITableViewDataSource

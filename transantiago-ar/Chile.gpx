@@ -6,10 +6,9 @@
      waypoint, Xcode will simulate that specific location. If you provide multiple waypoints,
      Xcode will simulate a route visiting each waypoint.
      -->
-    <wpt lat="-33.4153149" lon="-70.5897567">
-        <name>Test Chile</name>
-        
-        <!--
+    <wpt lat="-33.4145730" lon="-70.5847286">
+      <name>Test Chile</name>
+      <!--
          Optionally provide a time element for each waypoint. Xcode will interpolate movement
          at a rate of speed based on the time elapsed between each waypoint. If you do not provide
          a time element, then Xcode will use a fixed rate of speed.
