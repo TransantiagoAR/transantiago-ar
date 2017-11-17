@@ -7,4 +7,5 @@ target 'transantiago-ar' do
 
   # Pods for transantiago-ar
   pod 'ARCL'
+  pod 'Alamofire', '~> 4.5'
 end
