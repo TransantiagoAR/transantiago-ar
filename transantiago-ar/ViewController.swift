@@ -16,7 +16,6 @@ class ViewController: UIViewController, ARSCNViewDelegate, SceneLocationViewDele
   
   let sceneLocationView = SceneLocationView()
   var userLocation: CLLocation?
-//  var positions: [(Double, Double)] = []
   var didSetUser = false
   var didSetNode = false
   
@@ -27,16 +26,6 @@ class ViewController: UIViewController, ARSCNViewDelegate, SceneLocationViewDele
     sceneLocationView.run()
     view.addSubview(sceneLocationView)
     sceneLocationView.locationDelegate = self
-    
-    //    getUserLocation()
-    //    DispatchQueue.global(qos: .background).async {
-    //      while (self.userLocation == nil) {
-    //        self.userLocation = self.sceneLocationView.currentLocation()
-    //      }
-    //      DispatchQueue.main.async {
-    //
-    //      }
-    //    }
   }
   
   override func viewDidLayoutSubviews() {
@@ -67,8 +56,16 @@ class ViewController: UIViewController, ARSCNViewDelegate, SceneLocationViewDele
     sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode2)
     sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode3)
     
-    sceneLocationView.sceneNode!.addChildNode(CylinderLine(parent: sceneLocationView.sceneNode!, v1: annotationNode1.position, v2: annotationNode2.position, radius: 0.1, radSegmentCount: 48, color: .green))
-    sceneLocationView.sceneNode!.addChildNode(CylinderLine(parent: sceneLocationView.sceneNode!, v1: annotationNode2.position, v2: annotationNode3.position, radius: 0.1, radSegmentCount: 48, color: .blue))
+    drawPath(node1: annotationNode1, node2: annotationNode2)
+    drawPath(node1: annotationNode2, node2: annotationNode3)
+    let userNode = LocationAnnotationNode(location: sceneLocationView.currentLocation(), image: image)
+    drawPath(node1: annotationNode3, node2: userNode)
+  }
+  
+  func drawPath(node1: LocationAnnotationNode, node2: LocationAnnotationNode) {
+    let node = sceneLocationView.sceneNode!
+    let cylinder = CylinderLine(parent: node, v1: node1.position, v2: node2.position, radius: 0.1, radSegmentCount: 48, color: .green)
+    node.addChildNode(cylinder)
   }
   
   // MARK: - ARSCNViewDelegate
