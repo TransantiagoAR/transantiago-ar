@@ -12,31 +12,9 @@ import UIKit
 
 struct PopUpViewItem {
   let name: String
-  let eta: String
+  let eta: [String]
   let color: UIColor
 }
-
-//class PopUpViewItemCell: UITableViewCell {
-//
-//  var nameLabel = UILabel()
-//  var etaLabel = UILabel()
-//
-//  override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
-//    super.init(style: style, reuseIdentifier: reuseIdentifier)
-//    self.contentView.addSubview(nameLabel)
-//    self.contentView.addSubview(etaLabel)
-//  }
-//
-//  required init?(coder aDecoder: NSCoder) {
-//    super.init(coder: aDecoder)
-//  }
-//
-//  override func layoutSubviews() {
-//    super.layoutSubviews()
-//    nameLabel = UILabel(frame: CGRect(x: 0, y: 0, width: self.bounds.size.width - 40, height: 25))
-//    nameLabel = UILabel(frame: CGRect(x: 0, y: 25, width: self.bounds.size.width - 40, height: 25))
-//  }
-//}
 
 let PopupTableViewCellId = "asdasdasd"
 
@@ -45,7 +23,7 @@ class PopupTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
   let items: [PopUpViewItem]
   
   init(items: [PopUpViewItem]) {
-    let frame = CGRect(x: 0, y: 0, width: 150, height: items.count * 50)
+    let frame = CGRect(x: 0, y: 0, width: 150, height: items.count * 52)
     self.items = items
     super.init(frame: frame, style: .plain)
     self.delegate = self
@@ -80,7 +58,7 @@ class PopupTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     let cell = tableView.dequeueReusableCell(withIdentifier: PopupTableViewCellId) ?? UITableViewCell(style: UITableViewCellStyle.subtitle, reuseIdentifier: PopupTableViewCellId)
     cell.textLabel?.text = item.name
     cell.textLabel?.textColor = item.color
-    cell.detailTextLabel?.text = item.eta
+    cell.detailTextLabel?.text = item.eta.count > 0 ? item.eta[0] : "No hay información"
     return cell
   }
   

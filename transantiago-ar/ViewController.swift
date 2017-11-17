@@ -186,7 +186,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let userLocation = sceneLocationView.currentLocation()!
     locations.sort() { l1, l2 in l1.distance(from: userLocation) < l2.distance(from: userLocation) }
     if (locations.count > 1) {
-      let busItems = buses.map() { bus in PopUpViewItem(name: bus.pid, eta: bus.etas[0], color: bus.color) }
+      let busItems = buses.map() { bus in PopUpViewItem(name: bus.pid, eta: bus.etas, color: bus.color) }
       let busTable = PopupTableView(items: busItems)
       let busImage = busTable.image()
       let c1 = locations[0].coordinate
@@ -201,51 +201,6 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   @objc func handleTap(gestureRecognize: UITapGestureRecognizer) {
     loadBuses()
   }
-  
-  //  func getValidDistance() -> SCNVector3 {
-  //    print("getValidDistance")
-  //    let screenCentre = CGPoint(x: sceneLocationView.bounds.midX, y: sceneLocationView.bounds.midY)
-  //    let arHitTestResults = sceneLocationView.hitTest(screenCentre, types: [.featurePoint])
-  //    if let closestResult = arHitTestResults.first {
-  //      if closestResult.distance < 0.4 {
-  //        return getValidDistance()
-  //      }
-  //      let transform = closestResult.worldTransform
-  //      return SCNVector3Make(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
-  //    } else {
-  //      return getValidDistance()
-  //    }
-  //  }
-  
-  //      guard let savedBounds = self.bounds else { return }
-  //      let screenCentre = CGPoint(x: savedBounds.midX, y: savedBounds.midY)
-  //      let arHitTestResults = self.sceneLocationView.hitTest(screenCentre, types: [.featurePoint])
-  //      if let closestResult = arHitTestResults.first {
-  //        if closestResult.distance < 0.5 {
-  //          return self.recognizedSign()
-  //        }
-  //        let transform = closestResult.worldTransform
-  //        self.latestHitCenter = SCNVector3Make(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
-  //
-  //        let items = [PopUpViewItem(name: "n1", eta: "5 min"), PopUpViewItem(name: "n2", eta: "1 min")]
-  //        let table = PopupTableView(items: items)
-  //        let image = table.image()
-  //
-  //        let plane = SCNPlane(width: image.size.width / 1000, height: image.size.height / 1000)
-  //        plane.firstMaterial!.diffuse.contents = image
-  //        plane.firstMaterial!.lightingModel = .constant
-  //
-  //        let annotationNode = SCNNode()
-  //        annotationNode.geometry = plane
-  //        annotationNode.position = self.latestHitCenter!
-  //
-  //        let billboardConstraint = SCNBillboardConstraint()
-  //        billboardConstraint.freeAxes = SCNBillboardAxis.Y
-  //        let constraints = [billboardConstraint]
-  //
-  //        annotationNode.constraints = constraints
-  //
-  //        self.sceneLocationView.sceneNode!.addChildNode(annotationNode)
   
   func foundSign() {
     guard !processingSign else { return print("processing...") }
@@ -285,8 +240,25 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   }
   
   func renderBusStop() {
-    print("TODO: renderBusStop()")
-    print(latestPosition)
+    let arHitTestResults = sceneLocationView.hitTest(latestPosition!, types: [.featurePoint])
+    if let closestResult = arHitTestResults.first {
+      let transform = closestResult.worldTransform
+      let latestHitCenter = SCNVector3Make(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
+      let items = self.busStop!.buses.map() { bus in PopUpViewItem(name: bus.pid, eta: bus.etas, color: .black) }
+      let table = PopupTableView(items: items)
+      let image = table.image()
+      let plane = SCNPlane(width: image.size.width / 1000, height: image.size.height / 1000)
+      plane.firstMaterial!.diffuse.contents = image
+      plane.firstMaterial!.lightingModel = .constant
+      let annotationNode = SCNNode()
+      annotationNode.geometry = plane
+      annotationNode.position = latestHitCenter
+      let billboardConstraint = SCNBillboardConstraint()
+      billboardConstraint.freeAxes = SCNBillboardAxis.Y
+      let constraints = [billboardConstraint]
+      annotationNode.constraints = constraints
+      self.sceneLocationView.sceneNode!.addChildNode(annotationNode)
+    }
   }
   
   func drawPath(node1: LocationAnnotationNode, node2: LocationAnnotationNode, color: UIColor) {
