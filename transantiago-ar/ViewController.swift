@@ -21,6 +21,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   var didSetUser = false
   var didSetNode = false
   var latestHitCenter: SCNVector3?
+  var locationAnnotationNodes: [LocationAnnotationNode] = []
   
   var processingSign = false
   var latestCiImage: CIImage?
@@ -42,6 +43,9 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     classificationRequest.imageCropAndScaleOption = VNImageCropAndScaleOption.centerCrop // Crop from centre of images and scale to appropriate size.
     visionRequests = [classificationRequest]
     loopCoreMLUpdate()
+    
+    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(self.handleTap(gestureRecognize:)))
+    view.addGestureRecognizer(tapGesture)
   }
   
   override func viewDidLayoutSubviews() {
@@ -51,6 +55,14 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   
   func myRender() {
     let image = UIImage(named: "pin")!
+    let userLocation = sceneLocationView.currentLocation()
+    let url = "https://f8059c21.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
+    print("url: \(url)")
+    Alamofire.request(url).responseJSON { response in
+      print("Response JSON journey")
+      print(response.error ?? "no error")
+      print(response.result.value ?? "no value")
+    }
     
     let items = [PopUpViewItem(name: "n1", eta: "5 min"), PopUpViewItem(name: "n2", eta: "1 min")]
     let table = PopupTableView(items: items)
@@ -133,6 +145,10 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   //
   //        self.sceneLocationView.sceneNode!.addChildNode(annotationNode)
   
+  @objc func handleTap(gestureRecognize: UITapGestureRecognizer) {
+    
+  }
+  
   func foundSign() {
     guard !processingSign else { return print("processing...") }
     processingSign = true
@@ -140,7 +156,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let context = CIContext.init(options: nil)
     let cgImage = context.createCGImage(latestCiImage!, from: latestCiImage!.extent)!
     let image = UIImage.init(cgImage: cgImage)
-    guard let imageRepresentation = UIImageJPEGRepresentation(image, 0.8) else {
+    guard let imageRepresentation = UIImageJPEGRepresentation(image, 0.95) else {
       print("imageRepresentation nil")
       return processingSign = false
     }
