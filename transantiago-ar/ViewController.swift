@@ -102,6 +102,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   var busStop: BusStop?
   var busStopNodes: [BusStopNode] = []
   var paths: [SCNNode] = []
+  var busStopTableNode: SCNNode?
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -302,6 +303,9 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   }
   
   func renderBusStop() {
+    if let node = busStopTableNode {
+      node.removeFromParentNode()
+    }
     let arHitTestResults = sceneLocationView.hitTest(latestPosition!, types: [.featurePoint])
     if let closestResult = arHitTestResults.first {
       let transform = closestResult.worldTransform
@@ -319,6 +323,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
       billboardConstraint.freeAxes = SCNBillboardAxis.Y
       let constraints = [billboardConstraint]
       annotationNode.constraints = constraints
+      busStopTableNode = annotationNode
       self.sceneLocationView.sceneNode!.addChildNode(annotationNode)
     }
   }
