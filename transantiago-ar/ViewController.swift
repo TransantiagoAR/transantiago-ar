@@ -132,7 +132,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     guard !fetchingBuses else { return print("busy fetching buses") }
     fetchingBuses = true
     let userLocation = sceneLocationView.currentLocation()
-    let url = "https://8e8f0089.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
+    let url = "https://tranar.lopezjuri.com/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
     print("requesting: \(url)")
     debug(text: "buses lat=\(userLocation!.coordinate.latitude) lon=\(userLocation!.coordinate.longitude)")
     Alamofire.request(url).responseJSON { response in
@@ -355,7 +355,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     
     if let observation = observations[0] as? VNClassificationObservation {
       let identifier = observation.identifier
-      if targetIdentifiers.contains(identifier) {
+      if targetIdentifiers.contains(identifier) && didSetNode && didSetUser {
         foundSign()
       }
     }
@@ -379,10 +379,10 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   // MARK: - SceneLocationViewDelegate
   
   func sceneLocationViewDidAddSceneLocationEstimate(sceneLocationView: SceneLocationView, position: SCNVector3, location: CLLocation) {
-    if (!didSetUser && didSetNode) {
-      loadBuses()
+    if !didSetUser {
+      debug(text: "didSetUser")
+      didSetUser = true
     }
-    didSetUser = true
   }
   
   func sceneLocationViewDidRemoveSceneLocationEstimate(sceneLocationView: SceneLocationView, position: SCNVector3, location: CLLocation) {
@@ -394,10 +394,10 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   }
   
   func sceneLocationViewDidSetupSceneNode(sceneLocationView: SceneLocationView, sceneNode: SCNNode) {
-    if (didSetUser && !didSetNode) {
-      loadBuses()
+    if !didSetNode {
+      debug(text: "didSetNode")
+      didSetNode = true
     }
-    didSetNode = true
   }
   
   func sceneLocationViewDidUpdateLocationAndScaleOfLocationNode(sceneLocationView: SceneLocationView, locationNode: LocationNode) {
