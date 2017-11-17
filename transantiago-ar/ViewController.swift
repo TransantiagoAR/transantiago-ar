@@ -72,6 +72,7 @@ class BusStop {
 
 class ViewController: UIViewController, SceneLocationViewDelegate {
   
+  var debugLabel = UITextView()
   let sceneLocationView = SceneLocationView()
   var didSetUser = false
   var didSetNode = false
@@ -110,6 +111,8 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     sceneLocationView.frame = view.bounds
+    debugLabel = UITextView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 60))
+    view.addSubview(debugLabel)
   }
   
   func loadBuses() {
@@ -118,6 +121,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let userLocation = sceneLocationView.currentLocation()
     let url = "https://f8059c21.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
     print("requesting: \(url)")
+    debug(text: "requesting: \(url)")
     Alamofire.request(url).responseJSON { response in
       var buses: [Bus] = []
       guard response.error == nil else { self.fetchingBuses = false; return print("error: \(response.error.debugDescription)") }
@@ -215,6 +219,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let parameters: Parameters = [ "base64": base64String, "lat": coordinate.latitude, "lon": coordinate.longitude ]
     let url = "https://3ab5ea6f.ngrok.io/sign"
     print("requesting: \(url)")
+    debug(text: "requesting: \(url)")
     Alamofire.request(url, method: .post, parameters: parameters, encoding: JSONEncoding.default).responseJSON { response in
       print("json:")
       print(response.result.value)
@@ -265,6 +270,15 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let node = sceneLocationView.sceneNode!
     let cylinder = CylinderLine(parent: node, v1: node1.position, v2: node2.position, radius: 0.1, radSegmentCount: 48, color: color)
     node.addChildNode(cylinder)
+  }
+  
+  func debug(text: String) {
+    DispatchQueue.main.async {
+      let before = self.debugLabel.text ?? ""
+      self.debugLabel.text = before + "\n" + text
+      let bottom = self.debugLabel.contentSize.height - self.debugLabel.bounds.size.height
+      self.debugLabel.setContentOffset(CGPoint(x: 0, y: bottom), animated: true)
+    }
   }
   
   // MARK: - CoreML
