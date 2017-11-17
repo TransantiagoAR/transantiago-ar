@@ -164,7 +164,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
       for journey in bus.journeys {
         let coordinate = CLLocationCoordinate2D(latitude: journey.0, longitude: journey.1)
         let location = CLLocation(coordinate: coordinate, altitude: bus.altitude)
-        let node = LocationAnnotationNode(location: location, image: image)
+        let node = LocationAnnotationNode(location: location, image: UIImage())
         node.scaleRelativeToDistance = true
         let busNode = BusNode(pid: bus.pid, node: node, color: bus.color)
         busesNodes.append(busNode)
