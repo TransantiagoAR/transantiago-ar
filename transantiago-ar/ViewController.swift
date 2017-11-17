@@ -53,7 +53,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, SceneLocationViewDele
     let annotationNode3 = LocationAnnotationNode(location: location3, image: image)
     
     annotationNode1.scaleRelativeToDistance = true
-    annotationNode2.scaleRelativeToDistance = true
+//    annotationNode2.scaleRelativeToDistance = true
     annotationNode3.scaleRelativeToDistance = true
   
     sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode1)
