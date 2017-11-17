@@ -83,12 +83,14 @@ class BusStop {
 
 class ViewController: UIViewController, SceneLocationViewDelegate {
   
-  var debugLabel = UITextView()
+  var debugLabel: UITextView?
+  var debugButton: UIButton?
   let sceneLocationView = SceneLocationView()
   var didSetUser = false
   var didSetNode = false
   var fetchingBuses = false
   var processingSign = false
+  var shouldProcessSignAgain = true
   
   var latestCiImage: CIImage?
   var latestPosition: CGPoint?
@@ -125,8 +127,14 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     sceneLocationView.frame = view.bounds
-    debugLabel = UITextView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 60))
-    view.addSubview(debugLabel)
+    debugLabel = UITextView(frame: CGRect(x: 0, y: 0, width: view.bounds.width * 6/7, height: 60))
+    debugButton = UIButton(type: .contactAdd)
+    debugButton?.frame = CGRect(x: view.bounds.width * 6/7, y: 0, width: view.bounds.width * 1/7, height: 60)
+    debugButton?.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchDown)
+    if let l = debugLabel, let b = debugButton {
+      view.addSubview(l)
+      view.addSubview(b)
+    }
   }
   
   func loadBuses() {
@@ -258,9 +266,16 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     loadBuses()
   }
   
+  @objc func buttonTapped(_ button: UIButton) {
+    debug(text: "button tapped")
+    shouldProcessSignAgain = true
+  }
+  
   func foundSign() {
     guard !processingSign else { debug(text: "processing..."); return print("processing...") }
     processingSign = true
+    guard shouldProcessSignAgain else { debug(text: "dont check image"); return print("dont check image") }
+    shouldProcessSignAgain = false
     let context = CIContext.init(options: nil)
     let cgImage = context.createCGImage(latestCiImage!, from: latestCiImage!.extent)!
     let image = UIImage.init(cgImage: cgImage)
@@ -337,10 +352,11 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   
   func debug(text: String) {
     DispatchQueue.main.async {
-      let before = self.debugLabel.text ?? ""
-      self.debugLabel.text = before + "\n" + text
-      let bottom = self.debugLabel.contentSize.height - self.debugLabel.bounds.size.height
-      self.debugLabel.setContentOffset(CGPoint(x: 0, y: bottom), animated: true)
+      guard let debugLabel = self.debugLabel else { return }
+      let before = debugLabel.text ?? ""
+      debugLabel.text = before + "\n" + text
+      let bottom = debugLabel.contentSize.height - debugLabel.bounds.size.height
+      debugLabel.setContentOffset(CGPoint(x: 0, y: bottom), animated: true)
     }
   }
   
