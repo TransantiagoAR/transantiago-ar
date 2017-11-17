@@ -52,6 +52,17 @@ class BusNode {
   }
 }
 
+class BusStopNode {
+  let pid: String
+  let pos: (Double, Double)
+  var node: LocationAnnotationNode?
+  
+  init(pid: String, pos: (Double, Double)) {
+    self.pid = pid
+    self.pos = pos
+  }
+}
+
 class BusStopBus {
   let pid: String
   var etas: [String] = []
@@ -89,6 +100,8 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   var busesNodes: [BusNode] = []
   var buses: [Bus] = []
   var busStop: BusStop?
+  var busStopNodes: [BusStopNode] = []
+  var paths: [SCNNode] = []
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -119,15 +132,33 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     guard !fetchingBuses else { return print("busy fetching buses") }
     fetchingBuses = true
     let userLocation = sceneLocationView.currentLocation()
-    let url = "https://f8059c21.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
+    let url = "https://8e8f0089.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
     print("requesting: \(url)")
-    debug(text: "requesting: \(url)")
+    debug(text: "buses lat=\(userLocation!.coordinate.latitude) lon=\(userLocation!.coordinate.longitude)")
     Alamofire.request(url).responseJSON { response in
       var buses: [Bus] = []
-      guard response.error == nil else { self.fetchingBuses = false; return print("error: \(response.error.debugDescription)") }
+      var busStopNodes: [BusStopNode] = []
+      guard response.error == nil else {
+        self.fetchingBuses = false
+        self.debug(text: "buses failed")
+        return print("error: \(response.error.debugDescription)")
+      }
       let json = response.result.value as! NSArray
       for itemAny in json {
         let item = itemAny as? NSDictionary ?? [:]
+        let stops = item["stops"] as? NSArray ?? []
+        for stopAny in stops {
+          let stop = stopAny as? NSDictionary ?? [:]
+          let pid = stop["stop"] as? String ?? ""
+          let pos = stop["pos"] as? NSArray ?? [0,0]
+          let x = pos[0] as? Double ?? 0.0
+          let y = pos[1] as? Double ?? 0.0
+          let pids = busStopNodes.map() { b in b.pid }
+          if !pids.joined(separator: " ").contains(pid) {
+            let busStopNode = BusStopNode(pid: pid, pos: (x,y))
+            busStopNodes.append(busStopNode)
+          }
+        }
         let pid = item["pid"] as? String ?? ""
         let bus = Bus(pid: pid, color: BusColors[buses.count], altitude: BusAltitude[buses.count])
         buses.append(bus)
@@ -147,20 +178,29 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
         }
       }
       self.fetchingBuses = false
-      guard buses.count > 0 else { return print("no buses...") }
-      print("found buses: \(buses.count), an eta: \(buses[0].etas)")
+      guard buses.count > 0 else { print("no buses..."); return self.debug(text: "no buses...") }
+      self.debug(text: "found buses: \(buses.count), an eta: \(buses[0].etas)")
+      self.debug(text: "found busStop: \(busStopNodes.count)")
       self.buses = buses
+      self.busStopNodes = busStopNodes
       DispatchQueue.main.async { self.renderBuses() }
     }
   }
   
   func renderBuses() {
-    let image = UIImage(named: "pin")!
-    
     if let etaNode = self.etaNode { sceneLocationView.removeLocationNode(locationNode: etaNode.node) }
     for busNode in self.busesNodes {
       sceneLocationView.removeLocationNode(locationNode: busNode.node)
     }
+    for busStop in busStopNodes {
+      if let node = busStop.node {
+        sceneLocationView.removeLocationNode(locationNode: node)
+      }
+    }
+    for path in paths {
+      path.removeFromParentNode()
+    }
+    paths = []
     
     var locations: [CLLocation] = []
     var busesNodes: [BusNode] = []
@@ -177,6 +217,17 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
           locations.append(location)
         }
       }
+    }
+    
+    let image = UIImage(named: "pin")!
+    for busStop in busStopNodes {
+      let coordinate = CLLocationCoordinate2D(latitude: busStop.pos.0, longitude: busStop.pos.1)
+      print("pid: \(busStop.pid) coordinate: \(coordinate)")
+      let location = CLLocation(coordinate: coordinate, altitude: -1)
+      let node = LocationAnnotationNode(location: location, image: image)
+      node.scaleRelativeToDistance = true
+      busStop.node = node
+      sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: node)
     }
     
     self.busesNodes = busesNodes
@@ -207,7 +258,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   }
   
   func foundSign() {
-    guard !processingSign else { return print("processing...") }
+    guard !processingSign else { debug(text: "processing..."); return print("processing...") }
     processingSign = true
     let context = CIContext.init(options: nil)
     let cgImage = context.createCGImage(latestCiImage!, from: latestCiImage!.extent)!
@@ -219,10 +270,15 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let parameters: Parameters = [ "base64": base64String, "lat": coordinate.latitude, "lon": coordinate.longitude ]
     let url = "https://3ab5ea6f.ngrok.io/sign"
     print("requesting: \(url)")
-    debug(text: "requesting: \(url)")
+    debug(text: "sending image...")
     Alamofire.request(url, method: .post, parameters: parameters, encoding: JSONEncoding.default).responseJSON { response in
       print("json:")
       print(response.result.value)
+      guard response.error == nil else {
+        self.processingSign = false
+        self.debug(text: "stopsign failed")
+        return print("error: \(response.error.debugDescription)")
+      }
       let json = response.result.value as? NSDictionary ?? [:]
       let stop = json["stop"] as? String ?? ""
       let busStop = BusStop(stop: stop)
@@ -238,6 +294,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
         }
       }
       print("found sign buses: \(busStop.buses.count)")
+      self.debug(text: "found sign buses: \(busStop.buses.count)")
       self.busStop = busStop
       DispatchQueue.main.async { self.renderBusStop() }
       self.processingSign = false
@@ -270,6 +327,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     let node = sceneLocationView.sceneNode!
     let cylinder = CylinderLine(parent: node, v1: node1.position, v2: node2.position, radius: 0.1, radSegmentCount: 48, color: color)
     node.addChildNode(cylinder)
+    paths.append(cylinder)
   }
   
   func debug(text: String) {
