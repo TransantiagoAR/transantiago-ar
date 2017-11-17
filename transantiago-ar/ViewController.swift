@@ -13,22 +13,59 @@ import ARCL
 import CoreLocation
 import Vision
 import Alamofire
+import MapKit
+
+let BusColors: [UIColor] = [.red, .green, .blue, .black, .brown, .cyan, .magenta]
+
+class EtaNode {
+  let node: LocationAnnotationNode
+  
+  init(node: LocationAnnotationNode) {
+    self.node = node
+  }
+}
+
+class Bus {
+  let pid: String
+  var journeys: [(Double, Double)] = []
+  var etas: [String] = []
+  let color: UIColor
+  
+  init(pid: String, color: UIColor) {
+    self.pid = pid
+    self.color = color
+  }
+}
+
+class BusNode {
+  let pid: String
+  let node: LocationAnnotationNode
+  let color: UIColor
+  
+  init(pid: String, node: LocationAnnotationNode, color: UIColor) {
+    self.pid = pid
+    self.node = node
+    self.color = color
+  }
+}
 
 class ViewController: UIViewController, SceneLocationViewDelegate {
   
   let sceneLocationView = SceneLocationView()
-  var userLocation: CLLocation?
   var didSetUser = false
   var didSetNode = false
-  var latestHitCenter: SCNVector3?
-  var locationAnnotationNodes: [LocationAnnotationNode] = []
-  
+  var fetchingBuses = false
   var processingSign = false
+  
   var latestCiImage: CIImage?
   var latestPosition: CGPoint?
   var visionRequests = [VNRequest]()
   let dispatchQueueML = DispatchQueue(label: "com.hw.dispatchqueueml")
   let targetIdentifiers = "scoreboard street sign"
+  
+  var etaNode: EtaNode?
+  var busesNodes: [BusNode] = []
+  var buses: [Bus] = []
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -53,50 +90,90 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     sceneLocationView.frame = view.bounds
   }
   
-  func myRender() {
-    let image = UIImage(named: "pin")!
+  func loadBuses() {
+    guard !fetchingBuses else { return }
+    fetchingBuses = true
     let userLocation = sceneLocationView.currentLocation()
     let url = "https://f8059c21.ngrok.io/journey?lat=\(userLocation!.coordinate.latitude)&lon=\(userLocation!.coordinate.longitude)"
-    print("url: \(url)")
+    print("requesting: \(url)")
     Alamofire.request(url).responseJSON { response in
-      print("Response JSON journey")
-      print(response.error ?? "no error")
-      print(response.result.value ?? "no value")
+      var buses: [Bus] = []
+      guard response.error == nil else { return print("error: \(response.error.debugDescription)") }
+      let json = response.result.value as! NSArray
+      for itemAny in json {
+        let item = itemAny as! NSDictionary
+        let pid = item["pid"] as! String
+        let bus = Bus(pid: pid, color: BusColors[buses.count])
+        buses.append(bus)
+        let etas = item["etas"] as! NSArray
+        for etaAny in etas {
+          let eta = etaAny as! String
+          bus.etas.append(eta)
+        }
+        let journeys = item["journeys"] as! NSArray
+        for journeysStartStopAny in journeys {
+          let journeyStartStop = journeysStartStopAny as! NSArray
+          for journeyPointAny in journeyStartStop {
+            let journeyPoint = journeyPointAny as! NSArray
+            let journey = (journeyPoint[0] as! Double, journeyPoint[1] as! Double)
+            bus.journeys.append(journey)
+          }
+        }
+      }
+      print("found buses: \(buses.count)")
+      self.buses = buses
+      self.fetchingBuses = false
+      DispatchQueue.main.async { self.renderBuses() }
     }
-    
-    let items = [PopUpViewItem(name: "n1", eta: "5 min"), PopUpViewItem(name: "n2", eta: "1 min")]
-    let table = PopupTableView(items: items)
-    let image2 = table.image()
-    
-    let coordinate1 = CLLocationCoordinate2D(latitude: 37.787354, longitude: -122.408096)
-    let location1 = CLLocation(coordinate: coordinate1, altitude: -2)
-    let annotationNode1 = LocationAnnotationNode(location: location1, image: image)
-    
-//    let coordinate2 = CLLocationCoordinate2D(latitude: 37.787293, longitude: -122.408160)
-//    let location2 = CLLocation(coordinate: coordinate2, altitude: -2)
-//    let annotationNode2 = LocationAnnotationNode(location: location2, image: image2)
-    
-    let coordinate3 = CLLocationCoordinate2D(latitude: 37.786934, longitude: -122.408026)
-    let location3 = CLLocation(coordinate: coordinate3, altitude: -2)
-    let annotationNode3 = LocationAnnotationNode(location: location3, image: image)
-    
-    annotationNode1.scaleRelativeToDistance = true
-    //    annotationNode2.scaleRelativeToDistance = true
-    annotationNode3.scaleRelativeToDistance = true
-    
-    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode1)
-//    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode2)
-    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: annotationNode3)
-    
-//    drawPath(node1: annotationNode1, node2: annotationNode2)
-//    drawPath(node1: annotationNode2, node2: annotationNode3)
-    //    let userNode = LocationAnnotationNode(location: sceneLocationView.currentLocation(), image: image)
-    //    drawPath(node1: annotationNode3, node2: userNode)
   }
   
-  func drawPath(node1: LocationAnnotationNode, node2: LocationAnnotationNode) {
+  func renderBuses() {
+    let image = UIImage(named: "pin")!
+    
+    if let etaNode = self.etaNode { sceneLocationView.removeLocationNode(locationNode: etaNode.node) }
+    for busNode in self.busesNodes {
+      sceneLocationView.removeLocationNode(locationNode: busNode.node)
+    }
+    
+    var busesNodes: [BusNode] = []
+    for bus in buses {
+      for journey in bus.journeys {
+        let coordinate = CLLocationCoordinate2D(latitude: journey.0, longitude: journey.1)
+        let location = CLLocation(coordinate: coordinate, altitude: -2)
+        let node = LocationAnnotationNode(location: location, image: image)
+        node.scaleRelativeToDistance = true
+        let busNode = BusNode(pid: bus.pid, node: node, color: bus.color)
+        busesNodes.append(busNode)
+      }
+    }
+    
+    self.busesNodes = busesNodes
+    for i in 0..<busesNodes.count {
+      let busNode = busesNodes[i]
+      sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: busNode.node)
+      guard i > 0 && busesNodes[i-1].pid == busNode.pid else { continue }
+      drawPath(node1: busesNodes[i-1].node, node2: busNode.node, color: busNode.color)
+    }
+    
+    //    TODO: ETA TABLE
+//    let items = [PopUpViewItem(name: "n1", eta: "5 min"), PopUpViewItem(name: "n2", eta: "1 min")]
+//    let table = PopupTableView(items: items)
+//    let image2 = table.image()
+////    let userLocation = sceneLocationView.currentLocation()!
+////    userLocation.coordinate.coordinateWithBearing(bearing: <#T##Double#>, distanceMeters: <#T##Double#>)
+////    let translation = LocationTranslation(latitudeTranslation: 0.01, longitudeTranslation: 0.01, altitudeTranslation: 0.01)
+////    let location = userLocation.translatedLocation(with: translation)
+//    let distance = CLLocationDistance(1/(1000*111))
+//    let coordinate = sceneLocationView.currentLocation()!.coordinate.transform(latitudinalMeters: distance, longitudinalMeters: distance)
+//    let location = CLLocation(coordinate: coordinate, altitude: 2)
+//    let node = LocationAnnotationNode(location: location, image: image2)
+//    etaNode = EtaNode(node: node)
+//    sceneLocationView.addLocationNodeWithConfirmedLocation(locationNode: node)
+  }
+  
+  func drawPath(node1: LocationAnnotationNode, node2: LocationAnnotationNode, color: UIColor) {
     let node = sceneLocationView.sceneNode!
-    let cylinder = CylinderLine(parent: node, v1: node1.position, v2: node2.position, radius: 0.1, radSegmentCount: 48, color: .green)
+    let cylinder = CylinderLine(parent: node, v1: node1.position, v2: node2.position, radius: 0.1, radSegmentCount: 48, color: color)
     node.addChildNode(cylinder)
   }
   
@@ -146,7 +223,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   //        self.sceneLocationView.sceneNode!.addChildNode(annotationNode)
   
   @objc func handleTap(gestureRecognize: UITapGestureRecognizer) {
-    
+    loadBuses()
   }
   
   func foundSign() {
@@ -196,7 +273,6 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
     
     if let observation = observations[0] as? VNClassificationObservation {
       let identifier = observation.identifier
-      print(identifier)
       if targetIdentifiers.contains(identifier) {
         foundSign()
       }
@@ -222,7 +298,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   
   func sceneLocationViewDidAddSceneLocationEstimate(sceneLocationView: SceneLocationView, position: SCNVector3, location: CLLocation) {
     if (!didSetUser && didSetNode) {
-      myRender()
+      loadBuses()
     }
     didSetUser = true
   }
@@ -237,7 +313,7 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   
   func sceneLocationViewDidSetupSceneNode(sceneLocationView: SceneLocationView, sceneNode: SCNNode) {
     if (didSetUser && !didSetNode) {
-      myRender()
+      loadBuses()
     }
     didSetNode = true
   }
@@ -248,4 +324,11 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   
 }
 
-
+public extension CLLocationCoordinate2D {
+  
+  public func transform(latitudinalMeters: CLLocationDistance, longitudinalMeters: CLLocationDistance) -> CLLocationCoordinate2D {
+    let region = MKCoordinateRegionMakeWithDistance(self, latitudinalMeters, longitudinalMeters)
+    return CLLocationCoordinate2D(latitude: latitude + region.span.latitudeDelta, longitude: longitude + region.span.longitudeDelta)
+  }
+  
+}
