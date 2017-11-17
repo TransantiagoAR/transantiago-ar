@@ -272,9 +272,9 @@ class ViewController: UIViewController, SceneLocationViewDelegate {
   }
   
   func foundSign() {
+    guard !processingSign else { debug(text: "processing..."); return print("processing...") }
     guard shouldProcessSignAgain else { debug(text: "dont check image"); return print("dont check image") }
     shouldProcessSignAgain = false
-    guard !processingSign else { debug(text: "processing..."); return print("processing...") }
     processingSign = true
     let context = CIContext.init(options: nil)
     let cgImage = context.createCGImage(latestCiImage!, from: latestCiImage!.extent)!
